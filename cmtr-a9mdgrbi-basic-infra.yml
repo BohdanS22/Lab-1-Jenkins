@@ -1,0 +1,214 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Basic Infrastructure Stack - cmtr-a9mdgrbi
+
+Parameters:
+  Maintainer:
+    Type: String
+    Default: Bohdan_Sukhytskyi
+    Description: Maintainer tag for all resources
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AZa: us-east-1a
+      AZb: us-east-1b
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: cmtr-a9mdgrbi-vpc
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  Subnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [ RegionMap, !Ref "AWS::Region", AZa ]
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cmtr-a9mdgrbi-subnet1
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  Subnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [ RegionMap, !Ref "AWS::Region", AZb ]
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: cmtr-a9mdgrbi-subnet2
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cmtr-a9mdgrbi-igw
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: cmtr-a9mdgrbi-public-rt1
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  PublicRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet1
+      RouteTableId: !Ref PublicRouteTable1
+
+  PublicRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: cmtr-a9mdgrbi-public-rt2
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  PublicRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet2
+      RouteTableId: !Ref PublicRouteTable2
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and HTTP
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: cmtr-a9mdgrbi-sg
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cmtr-a9mdgrbi-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ec2.amazonaws.com]
+            Action: ['sts:AssumeRole']
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Maintainer
+          Value: !Ref Maintainer
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+      InstanceProfileName: cmtr-a9mdgrbi-instance-profile
+
+  EC2Instance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c02fb55956c7d316
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref InstanceProfile
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref Subnet1
+          AssociatePublicIpAddress: true
+          GroupSet: [!Ref SecurityGroup]
+      Tags:
+        - Key: Name
+          Value: cmtr-a9mdgrbi-instance1
+        - Key: Maintainer
+          Value: !Ref Maintainer
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl enable httpd
+          systemctl start httpd
+          echo "Hello from Region us-east-1a" > /var/www/html/index.html
+
+  EC2Instance2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c02fb55956c7d316
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref InstanceProfile
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref Subnet2
+          AssociatePublicIpAddress: true
+          GroupSet: [!Ref SecurityGroup]
+      Tags:
+        - Key: Name
+          Value: cmtr-a9mdgrbi-instance2
+        - Key: Maintainer
+          Value: !Ref Maintainer
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl enable httpd
+          systemctl start httpd
+          echo "Hello from Region us-east-1b" > /var/www/html/index.html
+
+Outputs:
+  Instance1PublicIP:
+    Value: !GetAtt EC2Instance1.PublicIp
+    Description: Public IP of Instance 1
+
+  Instance2PublicIP:
+    Value: !GetAtt EC2Instance2.PublicIp
+    Description: Public IP of Instance 2
