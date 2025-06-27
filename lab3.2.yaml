@@ -1,1 +1,29 @@
+---
+AWSTemplateFormatVersion: version date
+
+Description:
+
+
+Metadata:
+
+
+Parameters:
+
+
+Rules:
+
+
+Mappings:
+
+
+Conditions:
+
+
+Transform:
+
+
+Resources:
+
+
+Outputs:
 
