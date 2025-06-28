@@ -1,0 +1,21 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - $(aws ecr get-login --no-include-email --region $AWS_REGION)
+  build:
+    commands:
+      - echo Building the Docker image...
+      - docker build -t cmtr-a9mdgrbi:alpine-httpd .
+      - docker tag cmtr-a9mdgrbi:alpine-httpd 692859926587.dkr.ecr.us-east-1.amazonaws.com/cmtr-a9mdgrbi:alpine-httpd
+  post_build:
+    commands:
+      - echo Pushing the Docker image...
+      - docker push 692859926587.dkr.ecr.us-east-1.amazonaws.com/cmtr-a9mdgrbi:alpine-httpd
+
+artifacts:
+  files:
+    - '**/*'
